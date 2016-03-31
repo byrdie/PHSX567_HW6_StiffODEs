@@ -46,52 +46,76 @@ ub = 1000e-6;	% upper bound on particle size
 lb = 1e-6;		% lower bound on particle size
 t = 0:10*tau;
 
-for i = 1:10
+% Evaluate upperbound trajectory
+d = ub;
+r = d / 2;				% Particle radius
+V = (4/3) * pi * r^3;	% Particle volume
+m = part_rho * V;		% Particle mass
+A = pi * r^2;		% Particle cross-sectional area
+tau = 2 * pi * a / w_0;			% Convective turnover time
+traject_ub = lsode("advect", initial, t);
+y_ub = traject_ub(:,3);
 
-	d = (ub - lb) / 2 + lb
+% Evaluate lower bound trajectory
+d = lb;
+r = d / 2;				% Particle radius
+V = (4/3) * pi * r^3;	% Particle volume
+m = part_rho * V;		% Particle mass
+A = pi * r^2;		% Particle cross-sectional area
+tau = 2 * pi * a / w_0;			% Convective turnover time
+traject_lb = lsode("advect", initial, t);
+y_lb = traject_lb(:,3);
 
+for i = 1:20
+
+
+	% Evaluate midpoint trajectory
+	d = (ub - lb) / 2 + lb;
 	r = d / 2;				% Particle radius
 	V = (4/3) * pi * r^3;	% Particle volume
 	m = part_rho * V;		% Particle mass
 	A = pi * r^2;		% Particle cross-sectional area
 	tau = 2 * pi * a / w_0;			% Convective turnover time
+	traject_mid = lsode("advect", initial, t);
+	y_mid = traject_mid(:,3);
 
-	% Evaluate the next trajectory
-	traject = lsode("advect", initial, t);
-	y = traject(:,3);
-
-	% Detect if it hit the ground
-	len = length(y(y < 150.32));
-	if(len > 76)	% Particle hit the ground
-		ub = d;
-	else
+	% Detect if it hit the ground by noting change in y between the 3 cases
+	du = sum(abs(y_ub - y_mid));
+	dl = sum(abs(y_mid - y_lb));
+	if(du > dl)
 		lb = d;
-	endif
+		traject_lb = traject_mid;
+		y_lb = y_mid;
+	else
+		ub = d;
+		traject_ub = traject_mid;
+		y_ub = traject_ub;
+	end
+
 
 endfor
 
 
 % Plot the upper and lower bound
 figure(2)
-d = ub
-traject_ub = lsode("advect", initial, t);
+%d = ub
+%traject_ub = lsode("advect", initial, t);
 X = traject_ub(:,1);
 Y = traject_ub(:,3);
 plot(X(Y > 0),Y(Y > 0));
-title(sprintf("Upper Bound Trajectory, %1.2f um Diameter", d * 1e6));
+title(sprintf("Upper and Lower Bound Trajectories"));
 xlabel("Horizontal position, x (m)");
 ylabel("Vertical position, y (m)");
 
 hold on
 
-d = lb
-traject_lb = lsode("advect", initial, t);
+%d = lb
+%traject_lb = lsode("advect", initial, t);
 X = traject_lb(:,1);
 Y = traject_lb(:,3);
 plot(X(Y > 0),Y(Y > 0), 'r');
-title(sprintf("Lower Bound Trajectory, %1.2f um Diameter", d * 1e6));
-xlabel("Horizontal position, x (m)");
-ylabel("Vertical position, y (m)");
+
+legend(sprintf("Upper bound trajectory, %.3f um", ub *1e6), sprintf("Lower bound trajectory, %.3f um", lb *1e6))
 
 hold off
 
